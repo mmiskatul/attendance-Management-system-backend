@@ -1,10 +1,10 @@
 """Application configuration."""
 
 from functools import lru_cache
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import Field, SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -35,11 +35,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["http://localhost:3000"])
 
     default_tenant_id: str = "university-main"
     default_campus_id: str = "main-campus"
-    student_id_regex: str = r"(?P<student_id>[A-Za-z0-9_-]{4,32})$"
+    student_id_regex: str = r"(?P<student_id>[A-Za-z0-9]{3}-[A-Za-z0-9]{2}-[A-Za-z0-9]{3})$"
 
     face_engine_provider: str = "mock"
     face_model_name: str = "buffalo_l"
