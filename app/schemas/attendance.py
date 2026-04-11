@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -54,3 +55,38 @@ class DailyAttendanceResponse(BaseModel):
     campus_id: str | None
     total_records: int
     records: list[AttendanceRecordResponse]
+
+
+class AttendanceStreamConfigureMessage(BaseModel):
+    type: Literal["configure"]
+    device_id: str = Field(min_length=2, max_length=128)
+    campus_id: str | None = Field(default=None, max_length=64)
+    attendance_session: AttendanceSession = AttendanceSession.DAILY
+
+
+class AttendanceStreamFrameMessage(BaseModel):
+    type: Literal["frame"]
+    image_base64: str = Field(min_length=50)
+    captured_at: datetime | None = None
+
+
+class AttendanceStreamPingMessage(BaseModel):
+    type: Literal["ping"]
+
+
+class AttendanceStreamStopMessage(BaseModel):
+    type: Literal["stop"]
+
+
+class AttendanceStreamEvent(BaseModel):
+    event: str
+    message: str
+    device_id: str | None = None
+    campus_id: str | None = None
+    recognized: bool | None = None
+    confidence_score: float | None = None
+    attendance_status: AttendanceStatus | None = None
+    matched_embedding_id: str | None = None
+    student: StudentResponse | None = None
+    attendance_record: AttendanceRecordResponse | None = None
+    cooldown_seconds: int | None = None

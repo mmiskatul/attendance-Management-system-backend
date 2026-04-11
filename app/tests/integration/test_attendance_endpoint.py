@@ -1,10 +1,12 @@
 """Integration-style attendance endpoint tests."""
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
 from app.api.v1.endpoints.attendance import attendance_rate_limit
+from app.core.security import create_access_token
 from app.db.dependencies import get_attendance_service, get_current_active_user
 from app.main import create_app
 from app.models.attendance import AttendanceRecordDocument
@@ -89,3 +91,52 @@ def test_attendance_recognize_endpoint_returns_contract() -> None:
     assert payload["recognized"] is True
     assert payload["student"]["student_id"] == "STU-001"
     assert payload["attendance_status"] == "marked"
+
+
+class FakeAuthService:
+    async def get_active_user(self, user_id: str) -> UserDocument:
+        _ = user_id
+        return fake_user()
+
+
+class FakeRateLimiter:
+    async def enforce(self, *args, **kwargs) -> None:
+        _ = args, kwargs
+
+
+def test_attendance_recognition_websocket_returns_live_event() -> None:
+    app = create_app(startup_enabled=False)
+    app.state.container = SimpleNamespace(
+        auth_service=FakeAuthService(),
+        attendance_service=FakeAttendanceService(),
+        rate_limiter=FakeRateLimiter(),
+    )
+
+    token = create_access_token(
+        subject="507f1f77bcf86cd799439011",
+        username="operator1",
+        role=UserRole.OPERATOR.value,
+        tenant_id="tenant-a",
+        secret_key=app.state.settings.jwt_secret,
+        algorithm=app.state.settings.jwt_algorithm,
+        expires_delta=timedelta(minutes=5),
+    )
+
+    client = TestClient(app)
+    with client.websocket_connect(f"/api/v1/attendance/ws/recognize?token={token}") as websocket:
+        ready = websocket.receive_json()
+        assert ready["event"] == "ready"
+
+        websocket.send_json({"type": "configure", "device_id": "terminal-1", "campus_id": "main"})
+        configured = websocket.receive_json()
+        assert configured["event"] == "configured"
+        assert configured["device_id"] == "terminal-1"
+
+        websocket.send_json({"type": "frame", "image_base64": "a" * 60})
+        processing = websocket.receive_json()
+        payload = websocket.receive_json()
+
+        assert processing["event"] == "processing"
+        assert payload["event"] == "recognized"
+        assert payload["attendance_status"] == "marked"
+        assert payload["student"]["student_id"] == "STU-001"
