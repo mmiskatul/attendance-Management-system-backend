@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     default_campus_id: str = "main-campus"
     student_id_regex: str = r"(?P<student_id>[A-Za-z0-9_-]{4,32})$"
 
-    face_engine_provider: str = "insightface"
+    face_engine_provider: str = "mock"
     face_model_name: str = "buffalo_l"
     face_match_threshold: float = 0.78
     duplicate_face_threshold: float = 0.88

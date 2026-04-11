@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import base64
+import io
 
-import cv2
 import numpy as np
+from PIL import Image, UnidentifiedImageError
 
 from app.core.exceptions import ValidationAppError
 
@@ -22,11 +23,14 @@ def decode_base64_image(image_base64: str) -> np.ndarray:
     except ValueError as exc:
         raise ValidationAppError("Image payload is not valid base64.") from exc
 
-    np_buffer = np.frombuffer(image_bytes, dtype=np.uint8)
-    image = cv2.imdecode(np_buffer, cv2.IMREAD_COLOR)
-    if image is None:
-        raise ValidationAppError("Unable to decode image payload.")
-    return image
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            rgb_image = image.convert("RGB")
+    except (UnidentifiedImageError, OSError) as exc:
+        raise ValidationAppError("Unable to decode image payload.") from exc
+
+    rgb_array = np.asarray(rgb_image, dtype=np.uint8)
+    return rgb_array[:, :, ::-1].copy()
 
 
 def crop_image(image: np.ndarray, bbox: tuple[int, int, int, int]) -> np.ndarray:

@@ -2,6 +2,10 @@
 
 Production-ready FastAPI backend for barcode-based student registration and facial-recognition attendance capture. The design is layered for maintainability, supports async MongoDB access, and is structured for future multi-campus, multi-device, and SaaS-style deployment.
 
+Deployment modes:
+- `Full ML mode`: container deployment with `requirements-full.txt` and `FACE_ENGINE_PROVIDER=insightface`
+- `Vercel-safe mode`: slim Python runtime with `requirements.txt` and `FACE_ENGINE_PROVIDER=mock`
+
 ## 1. System Architecture Overview
 
 ### Core architecture
@@ -194,13 +198,37 @@ docker compose up --build
 
 ### Production notes
 - Replace `JWT_SECRET_KEY`.
-- Set `FACE_ENGINE_PROVIDER=insightface`.
+- For full facial recognition, set `FACE_ENGINE_PROVIDER=insightface`.
 - Use managed MongoDB and Redis.
 - Provision TLS and reverse proxy in front of the API.
+
+### Vercel
+
+This repo now includes:
+- [`api/index.py`](api/index.py) as the Vercel Python entrypoint
+- [`vercel.json`](vercel.json)
+- [`.python-version`](.python-version)
+
+Recommended Vercel environment variables:
+
+```env
+FACE_ENGINE_PROVIDER=mock
+MONGODB_URI=...
+MONGODB_DATABASE=attendance_management
+JWT_SECRET_KEY=...
+BOOTSTRAP_ADMIN_USERNAME=admin
+BOOTSTRAP_ADMIN_PASSWORD=...
+```
+
+Important:
+- Vercel-safe mode deploys the API successfully by excluding large ML dependencies from the serverless bundle.
+- Commercial face recognition should still run in `Full ML mode` on a container platform, or behind a separate ML service.
+- If you set `FACE_ENGINE_PROVIDER=insightface` on Vercel without installing the ML extras, startup will fail by design.
 
 ## 9. Test Instructions
 
 ```bash
+pip install -r requirements-dev.txt
 pytest app/tests -q
 ```
 
@@ -213,12 +241,24 @@ The included test suite covers:
 
 ## 10. Deployment Instructions
 
-1. Build the container image.
+1. Build the container image using `requirements-full.txt`.
 2. Supply production secrets through environment variables or a secret manager.
 3. Run MongoDB migrations automatically at startup through `app/db/migrations.py`.
 4. Scale the API horizontally behind a reverse proxy.
 5. Back the rate limiter with Redis for multi-instance consistency.
 6. Point enrollment and recognition traffic to GPU-backed or CPU-sized nodes depending on the selected face engine provider.
+
+### Vercel deployment guidance
+
+- Suitable on Vercel:
+  - auth
+  - student CRUD
+  - attendance record queries
+  - audit log queries
+- Not a strong production fit on Vercel:
+  - `insightface` inference
+  - `onnxruntime` model execution
+  - heavier future liveness models
 
 ## 11. Future Commercial Upgrade Recommendations
 

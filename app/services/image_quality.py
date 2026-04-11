@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import cv2
 import numpy as np
 from pydantic import BaseModel, Field
 
@@ -21,9 +20,9 @@ class ImageQualityService:
     """Compute image quality signals used in enrollment and recognition."""
 
     def assess(self, image: np.ndarray, *, min_score: float) -> QualityAssessment:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gray = self._to_grayscale(image)
         brightness = float(gray.mean() / 255.0)
-        blur_variance = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+        blur_variance = float(self._laplacian_variance(gray))
 
         reasons: list[str] = []
         blur_score = min(blur_variance / 250.0, 1.0)
@@ -44,3 +43,23 @@ class ImageQualityService:
             brightness=round(brightness, 4),
             blur_variance=round(blur_variance, 4),
         )
+
+    @staticmethod
+    def _to_grayscale(image: np.ndarray) -> np.ndarray:
+        if image.ndim == 2:
+            return image.astype(np.float32)
+        blue = image[:, :, 0].astype(np.float32)
+        green = image[:, :, 1].astype(np.float32)
+        red = image[:, :, 2].astype(np.float32)
+        return 0.114 * blue + 0.587 * green + 0.299 * red
+
+    @staticmethod
+    def _laplacian_variance(gray: np.ndarray) -> float:
+        padded = np.pad(gray, 1, mode="edge")
+        center = padded[1:-1, 1:-1]
+        up = padded[:-2, 1:-1]
+        down = padded[2:, 1:-1]
+        left = padded[1:-1, :-2]
+        right = padded[1:-1, 2:]
+        laplacian = (4.0 * center) - up - down - left - right
+        return float(laplacian.var())

@@ -11,8 +11,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home appuser
 
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY requirements*.txt ./
+RUN pip install --upgrade pip && pip install -r requirements-full.txt
 
 COPY . .
 RUN chown -R appuser:appuser /app
