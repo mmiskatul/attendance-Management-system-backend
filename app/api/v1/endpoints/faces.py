@@ -6,11 +6,39 @@ from app.api.v1.serializers import to_face_embedding_response, to_student_respon
 from app.db.dependencies import get_enrollment_service, require_roles
 from app.models.common import UserRole
 from app.models.user import UserDocument
-from app.schemas.face import FaceEnrollmentRequest, FaceEnrollmentResponse, RejectedSampleResponse
+from app.schemas.face import (
+    FaceAnalyzeRequest,
+    FaceAnalyzeResponse,
+    FaceEnrollmentRequest,
+    FaceEnrollmentResponse,
+    RejectedSampleResponse,
+)
 from app.services.enrollment import EnrollmentService
 
 
 router = APIRouter(prefix="/faces", tags=["faces"])
+
+
+@router.post("/analyze", response_model=FaceAnalyzeResponse, status_code=status.HTTP_200_OK)
+async def analyze_face(
+    payload: FaceAnalyzeRequest,
+    enrollment_service: EnrollmentService = Depends(get_enrollment_service),
+    _: UserDocument = Depends(require_roles(UserRole.ADMIN)),
+) -> FaceAnalyzeResponse:
+    result = await enrollment_service.analyze(
+        image_payload=payload.image_base64,
+        expected_pose=payload.expected_pose,
+    )
+    return FaceAnalyzeResponse(
+        provider_name=result.provider_name,
+        pose_reliable=result.pose_reliable,
+        faces_count=result.faces_count,
+        primary_pose=result.primary_pose,
+        detection_score=result.detection_score,
+        quality_score=result.quality_score,
+        expected_pose=result.expected_pose,
+        pose_match=result.pose_match,
+    )
 
 
 @router.post("/enroll", response_model=FaceEnrollmentResponse, status_code=status.HTTP_201_CREATED)
