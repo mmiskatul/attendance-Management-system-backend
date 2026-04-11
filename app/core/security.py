@@ -11,7 +11,11 @@ from pydantic import BaseModel
 from app.core.exceptions import AuthenticationAppError
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["pbkdf2_sha256"],
+    deprecated="auto",
+    pbkdf2_sha256__default_rounds=600000,
+)
 
 
 class AccessTokenPayload(BaseModel):
