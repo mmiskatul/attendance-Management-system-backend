@@ -1,0 +1,1 @@
+"""University attendance management backend."""
