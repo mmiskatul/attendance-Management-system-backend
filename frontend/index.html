@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>University Attendance Console</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <section id="auth-screen" class="screen auth-screen">
+        <div class="auth-hero">
+          <p class="eyebrow">University Attendance Console</p>
+          <h1>Face registration and realtime attendance from one backend.</h1>
+          <p class="hero-copy">
+            Login first. After authentication, the dashboard opens with a dedicated registration workflow where
+            student details and facial embeddings are captured together.
+          </p>
+          <div class="auth-note">
+            <strong>ID format:</strong>
+            <code>XXX-XX-XXX</code>
+          </div>
+        </div>
+
+        <div class="auth-card">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Authentication</p>
+              <h2>Admin or Operator Login</h2>
+            </div>
+          </div>
+          <form id="login-form" class="form-grid single">
+            <label>
+              <span>Username</span>
+              <input id="login-username" name="username" placeholder="admin" required />
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="login-password" name="password" type="password" required />
+            </label>
+            <label>
+              <span>Tenant ID</span>
+              <input id="login-tenant-id" name="tenant_id" placeholder="university-main" />
+            </label>
+            <button class="primary-button" type="submit">Login to Dashboard</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="dashboard-screen" class="screen dashboard-screen hidden">
+        <header class="dashboard-header panel">
+          <div>
+            <p class="eyebrow">University Attendance Dashboard</p>
+            <h1>Registration, live recognition, and records in one workspace.</h1>
+            <p class="hero-copy">
+              Registration is the default workflow. Scan or type the student ID, capture face samples, and store
+              embeddings with the same record.
+            </p>
+          </div>
+
+          <div class="hero-status">
+            <div class="status-card">
+              <span class="status-label">Session</span>
+              <strong id="session-status">Authenticated</strong>
+              <span id="role-status" class="muted">Role information</span>
+            </div>
+            <div class="status-card">
+              <span class="status-label">API</span>
+              <strong id="health-badge">Unknown</strong>
+              <div class="status-actions">
+                <button id="health-button" class="ghost-button" type="button">Check Health</button>
+                <button id="logout-button" class="ghost-button" type="button">Logout</button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <nav class="dashboard-nav panel">
+          <button id="nav-register" class="nav-button active" data-view="register" type="button">Register</button>
+          <button id="nav-attendance" class="nav-button" data-view="attendance" type="button">Live Attendance</button>
+          <button id="nav-records" class="nav-button" data-view="records" type="button">Records</button>
+        </nav>
+
+        <div class="dashboard-layout">
+          <main class="workspace">
+            <section class="view-panel active" data-view-panel="register">
+              <section class="panel workflow-panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="eyebrow">Registration</p>
+                    <h2>Student Registration With Face Capture</h2>
+                    <p class="muted">
+                      Focus the student ID field and scan with a barcode scanner, or type manually. Use the same
+                      value as the student record ID. Accepted format: <code>XXX-XX-XXX</code>.
+                    </p>
+                  </div>
+                  <button id="focus-student-id" class="ghost-button" type="button">Focus Student ID</button>
+                </div>
+
+                <div class="workflow-grid">
+                  <form id="register-workflow-form" class="form-grid">
+                    <label>
+                      <span>Student ID / Scanned Barcode</span>
+                      <input
+                        id="register-student-id"
+                        name="student_id"
+                        placeholder="ABC-12-XYZ"
+                        pattern="[A-Za-z0-9]{3}-[A-Za-z0-9]{2}-[A-Za-z0-9]{3}"
+                        required
+                      />
+                    </label>
+                    <label>
+                      <span>Full Name</span>
+                      <input name="full_name" placeholder="Student full name" required />
+                    </label>
+                    <label>
+                      <span>Department</span>
+                      <input name="department" placeholder="CSE" required />
+                    </label>
+                    <label>
+                      <span>Batch</span>
+                      <input name="batch" placeholder="2024" required />
+                    </label>
+                    <label>
+                      <span>Semester</span>
+                      <input name="semester" placeholder="Spring" required />
+                    </label>
+                    <label>
+                      <span>Email</span>
+                      <input name="email" type="email" placeholder="student@example.edu" required />
+                    </label>
+                    <label>
+                      <span>Phone</span>
+                      <input name="phone" placeholder="0123456789" required />
+                    </label>
+                    <label>
+                      <span>Campus ID</span>
+                      <input name="campus_id" placeholder="main-campus" />
+                    </label>
+                  </form>
+
+                  <div class="camera-stage">
+                    <div class="panel-subheader">
+                      <strong>Guided Face Scan</strong>
+                      <span id="register-sample-count" class="muted">Waiting to start</span>
+                    </div>
+                    <div class="camera-shell">
+                      <video id="register-video" class="camera-view" playsinline muted></video>
+                      <div id="register-guide-badge" class="live-badge idle">Ready</div>
+                      <div id="register-guide-overlay" class="recognize-overlay hidden registration-guide-overlay">
+                        <strong id="register-guide-title">Guided Face Scan</strong>
+                        <span id="register-guide-message">
+                          Start the camera, keep your face in frame, then begin the scan.
+                        </span>
+                      </div>
+                    </div>
+                    <canvas id="register-canvas" class="capture-canvas" width="640" height="480"></canvas>
+                    <div class="camera-actions">
+                      <button id="register-start-camera" class="secondary-button" type="button">Start Camera</button>
+                      <button id="register-stop-camera" class="ghost-button" type="button">Stop Camera</button>
+                      <button id="register-reset-scan" class="ghost-button" type="button">Reset Scan</button>
+                    </div>
+                    <div id="register-samples" class="scan-progress-grid">
+                      <article class="scan-step-card pending" data-step-card="front">
+                        <strong>Front</strong>
+                        <span>Pending</span>
+                      </article>
+                      <article class="scan-step-card pending" data-step-card="left">
+                        <strong>Left</strong>
+                        <span>Pending</span>
+                      </article>
+                      <article class="scan-step-card pending" data-step-card="right">
+                        <strong>Right</strong>
+                        <span>Pending</span>
+                      </article>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="registration-status-card" class="recognition-card empty-state">
+                  The registration workflow will create the student record first, then enroll and store face
+                  embeddings in MongoDB.
+                </div>
+                <button id="register-start-guided-scan" class="primary-button wide" type="button">
+                  Scan Face and Register Student
+                </button>
+              </section>
+            </section>
+
+            <section class="view-panel" data-view-panel="attendance">
+              <section class="panel workflow-panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="eyebrow">Attendance</p>
+                    <h2>Realtime Recognition Terminal</h2>
+                    <p class="muted">
+                      The browser camera streams frames over WebSocket to the backend. A successful match shows a
+                      large tick and the attendance status immediately on screen.
+                    </p>
+                  </div>
+                </div>
+
+                <form id="recognize-form" class="form-grid compact-header">
+                  <label>
+                    <span>Device ID</span>
+                    <input name="device_id" placeholder="terminal-1" required />
+                  </label>
+                  <label>
+                    <span>Campus ID</span>
+                    <input name="campus_id" placeholder="main-campus" />
+                  </label>
+                </form>
+
+                <div class="camera-stage">
+                  <div class="camera-shell">
+                    <video id="recognize-video" class="camera-view" playsinline muted></video>
+                    <div id="recognize-live-badge" class="live-badge idle">Idle</div>
+                    <div id="recognize-success-overlay" class="recognize-overlay hidden">
+                      <div id="recognize-overlay-icon" class="overlay-icon">&#10003;</div>
+                      <strong id="recognize-overlay-title">Attendance Taken</strong>
+                      <span id="recognize-overlay-message">Waiting for the first match.</span>
+                    </div>
+                  </div>
+                  <canvas id="recognize-canvas" class="capture-canvas" width="640" height="480"></canvas>
+                  <div class="camera-actions">
+                    <button id="recognize-start-camera" class="secondary-button" type="button">Start Camera</button>
+                    <button id="recognize-start-stream" class="primary-button" type="button">Start Live Recognition</button>
+                    <button id="recognize-stop-stream" class="ghost-button" type="button">Stop Live Recognition</button>
+                    <button id="recognize-stop-camera" class="ghost-button" type="button">Stop Camera</button>
+                  </div>
+                  <div class="panel-subheader">
+                    <strong>Live Recognition Status</strong>
+                    <span id="recognize-stream-status" class="muted">Socket disconnected</span>
+                  </div>
+                  <div id="recognize-last-match" class="recognition-card empty-state">
+                    Start the camera and live recognition to scan continuously.
+                  </div>
+                </div>
+              </section>
+            </section>
+
+            <section class="view-panel" data-view-panel="records">
+              <div class="records-grid">
+                <section class="panel">
+                  <div class="panel-header">
+                    <div>
+                      <p class="eyebrow">Student</p>
+                      <h2>Student Lookup</h2>
+                    </div>
+                  </div>
+                  <form id="student-form" class="form-grid compact">
+                    <label>
+                      <span>Student ID</span>
+                      <input name="student_id" placeholder="ABC-12-XYZ" required />
+                    </label>
+                    <button class="secondary-button" type="submit">Fetch Student</button>
+                  </form>
+                </section>
+
+                <section class="panel">
+                  <div class="panel-header">
+                    <div>
+                      <p class="eyebrow">History</p>
+                      <h2>Attendance Per Student</h2>
+                    </div>
+                  </div>
+                  <form id="history-form" class="form-grid compact">
+                    <label>
+                      <span>Student ID</span>
+                      <input name="student_id" placeholder="ABC-12-XYZ" required />
+                    </label>
+                    <button class="secondary-button" type="submit">Fetch History</button>
+                  </form>
+                </section>
+
+                <section class="panel">
+                  <div class="panel-header">
+                    <div>
+                      <p class="eyebrow">Daily</p>
+                      <h2>Daily Attendance</h2>
+                    </div>
+                  </div>
+                  <form id="daily-form" class="form-grid compact">
+                    <label>
+                      <span>Date</span>
+                      <input name="attendance_date" type="date" />
+                    </label>
+                    <label>
+                      <span>Campus ID</span>
+                      <input name="campus_id" placeholder="main-campus" />
+                    </label>
+                    <button class="secondary-button" type="submit">Fetch Daily Attendance</button>
+                  </form>
+                </section>
+
+                <section class="panel">
+                  <div class="panel-header">
+                    <div>
+                      <p class="eyebrow">Audit</p>
+                      <h2>Administrative Logs</h2>
+                    </div>
+                  </div>
+                  <form id="audit-form" class="form-grid compact">
+                    <label>
+                      <span>Skip</span>
+                      <input name="skip" type="number" min="0" value="0" />
+                    </label>
+                    <label>
+                      <span>Limit</span>
+                      <input name="limit" type="number" min="1" max="200" value="25" />
+                    </label>
+                    <button class="secondary-button" type="submit">Load Audit Logs</button>
+                  </form>
+                </section>
+              </div>
+            </section>
+          </main>
+
+          <aside class="console-column">
+            <section class="panel result-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Response Console</p>
+                  <h2>Latest API Result</h2>
+                </div>
+                <span id="result-status" class="result-status">Idle</span>
+              </div>
+              <div id="result-render" class="result-render">
+                <div class="empty-state">Login first, then use the dashboard workflows.</div>
+              </div>
+              <details class="raw-details">
+                <summary>Raw JSON</summary>
+                <pre id="result-output">Login first, then use the dashboard workflows.</pre>
+              </details>
+            </section>
+          </aside>
+        </div>
+      </section>
+    </div>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
