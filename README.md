@@ -5,6 +5,7 @@ Production-ready FastAPI backend for barcode-based student registration and faci
 Deployment modes:
 - `Full ML mode`: container deployment with `requirements-full.txt` and `FACE_ENGINE_PROVIDER=insightface`
 - `Vercel-safe mode`: slim Python runtime with `requirements.txt` and `FACE_ENGINE_PROVIDER=mock`
+- `Embedded UI mode`: backend also serves an operations frontend from `/`
 
 ## 1. System Architecture Overview
 
@@ -188,8 +189,13 @@ All runnable code is in this repository. The main entry points are:
 ### Local
 ```powershell
 Copy-Item .env.example .env
+pip install -r requirements-dev.txt
 uvicorn app.main:app --reload
 ```
+
+After startup:
+- Frontend UI: `http://127.0.0.1:8000/`
+- API docs: `http://127.0.0.1:8000/docs`
 
 ### Docker
 ```bash
@@ -201,6 +207,18 @@ docker compose up --build
 - For full facial recognition, set `FACE_ENGINE_PROVIDER=insightface`.
 - Use managed MongoDB and Redis.
 - Provision TLS and reverse proxy in front of the API.
+
+### Local full ML mode
+
+If you want local `insightface` recognition instead of mock mode:
+
+```powershell
+pip install -r requirements-dev-ml.txt
+```
+
+Notes:
+- Python `3.11` is the safest target in this repo.
+- On Windows, some `insightface` installs may require Microsoft C++ Build Tools if a prebuilt wheel is unavailable.
 
 ### Vercel
 

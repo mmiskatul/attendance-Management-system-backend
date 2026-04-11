@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
+from app.api.frontend import router as frontend_router
 from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
 from app.core.container import build_container
@@ -24,6 +27,7 @@ def create_app(*, settings: Settings | None = None, startup_enabled: bool = True
 
     runtime_settings = settings or get_settings()
     setup_logging("DEBUG" if runtime_settings.debug else "INFO")
+    frontend_assets_dir = Path(__file__).resolve().parent.parent / "frontend" / "assets"
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -65,6 +69,8 @@ def create_app(*, settings: Settings | None = None, startup_enabled: bool = True
 
     register_exception_handlers(app)
     app.include_router(api_router, prefix=runtime_settings.api_v1_prefix)
+    app.include_router(frontend_router)
+    app.mount("/static", StaticFiles(directory=frontend_assets_dir), name="static")
     app.add_api_route("/metrics", metrics_response, methods=["GET"], include_in_schema=False)
     return app
 

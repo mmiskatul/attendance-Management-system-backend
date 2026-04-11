@@ -35,6 +35,18 @@ class EnrollmentResult:
     rejected_samples: list[SampleRejection]
 
 
+@dataclass(slots=True)
+class FaceAnalysisResult:
+    provider_name: str
+    pose_reliable: bool
+    faces_count: int
+    primary_pose: str | None
+    detection_score: float | None
+    quality_score: float | None
+    expected_pose: str | None
+    pose_match: bool | None
+
+
 class EnrollmentService:
     """Enroll and validate multiple face samples per student."""
 
@@ -59,6 +71,41 @@ class EnrollmentService:
         self.embedding_cache = embedding_cache
         self.liveness_detector = liveness_detector
         self.settings = settings
+
+    async def analyze(self, *, image_payload: str, expected_pose: str | None = None) -> FaceAnalysisResult:
+        image = decode_base64_image(image_payload)
+        ensure_minimum_size(image)
+        faces = await self.face_engine.detect(image)
+        provider_name = getattr(self.face_engine, "provider_name", "unknown")
+        pose_reliable = provider_name != "mock"
+
+        if len(faces) != 1:
+            return FaceAnalysisResult(
+                provider_name=provider_name,
+                pose_reliable=pose_reliable,
+                faces_count=len(faces),
+                primary_pose=None,
+                detection_score=None,
+                quality_score=None,
+                expected_pose=expected_pose,
+                pose_match=None,
+            )
+
+        face = faces[0]
+        crop = crop_image(image, face.bbox)
+        quality = self.image_quality_service.assess(crop, min_score=0.0)
+        pose = face.pose or "front"
+        pose_match = pose == expected_pose if expected_pose and pose_reliable else None
+        return FaceAnalysisResult(
+            provider_name=provider_name,
+            pose_reliable=pose_reliable,
+            faces_count=1,
+            primary_pose=pose,
+            detection_score=face.detection_score,
+            quality_score=quality.score,
+            expected_pose=expected_pose,
+            pose_match=pose_match,
+        )
 
     async def enroll(
         self,
